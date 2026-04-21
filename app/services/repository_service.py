@@ -93,3 +93,49 @@ class RepositoryService:
                 "slug": repo.get("slug"),
                 "uuid": repo.get("uuid")
             }
+
+    @staticmethod
+    async def clone_repository(repo_slug: str, destination_path: str = "./") -> Dict[str, Any]:
+        """Clones a repository locally."""
+        from app.core.config import settings
+        import asyncio
+        import os
+        import base64
+        
+        workspace = BitbucketService.get_workspace()
+        token = settings.bitbucket_api_token.get_secret_value()
+        username = settings.bitbucket_username
+        
+        # Generate base64 auth for header to avoid credentials in URL & .git/config
+        if username:
+            auth_str = f"{username}:{token}"
+        else:
+            auth_str = f"x-token-auth:{token}"
+        b64_auth = base64.b64encode(auth_str.encode('utf-8')).decode('utf-8')
+            
+        clone_url = f"https://bitbucket.org/{workspace}/{repo_slug}.git"
+        
+        # Determine actual destination path and expand ~ if used
+        expanded_dest = os.path.expanduser(destination_path)
+        target_dir = os.path.join(expanded_dest, repo_slug)
+        
+        # Inject auth securely via git config param instead of URL
+        process = await asyncio.create_subprocess_exec(
+            "git", "-c", f"http.extraHeader=Authorization: Basic {b64_auth}", "clone", clone_url, target_dir,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        
+        stdout, stderr = await process.communicate()
+        
+        if process.returncode != 0:
+            return {
+                "status": "error",
+                "message": f"Git clone failed: {stderr.decode('utf-8')}"
+            }
+            
+        return {
+            "status": "success",
+            "message": f"Successfully cloned repository into {target_dir}",
+            "destination": target_dir
+        }

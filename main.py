@@ -101,6 +101,22 @@ async def create_repository(name: str, repo_slug: str, is_private: bool = True, 
     except Exception as e:
         return {"error": str(e)}
 
+@mcp.tool()
+async def clone_repository(repo_slug: str, destination_path: str = "./") -> Dict[str, Any]:
+    """
+    Clone a repository to the local filesystem.
+    
+    Args:
+        repo_slug: The URL-friendly identifier of the repository.
+        destination_path: Local path where the repository will be cloned.
+    """
+    try:
+        return await RepositoryService.clone_repository(repo_slug, destination_path)
+    except httpx.HTTPStatusError as e:
+        return {"error": f"HTTP Error {e.response.status_code}: {e.response.text}"}
+    except Exception as e:
+        return {"error": str(e)}
+
 # ----------------------------------------------------------------------------
 # SOURCE & COMMITS TOOLS
 # ----------------------------------------------------------------------------

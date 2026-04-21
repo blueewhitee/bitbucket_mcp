@@ -119,6 +119,10 @@ class RepositoryService:
         expanded_dest = os.path.expanduser(destination_path)
         target_dir = os.path.join(expanded_dest, repo_slug)
         
+        # Prepare environment variables to prevent Git from hanging on authentication failure
+        env = os.environ.copy()
+        env["GIT_TERMINAL_PROMPT"] = "0"
+        
         # Inject auth securely via git config param instead of URL.
         # --depth 1 is a shallow clone: fetches only the latest commit snapshot,
         # not the full history. This is much faster and ideal for code reading/analysis.
@@ -126,7 +130,8 @@ class RepositoryService:
             "git", "-c", f"http.extraHeader=Authorization: Basic {b64_auth}",
             "clone", "--depth", "1", clone_url, target_dir,
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            stderr=asyncio.subprocess.PIPE,
+            env=env
         )
         
         stdout, stderr = await process.communicate()
